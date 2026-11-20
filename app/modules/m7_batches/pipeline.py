@@ -22,6 +22,10 @@ def run_pipeline(sources, until="reconcile", events=None):
         return wire(results)
     cal = results["calibration"] = calibrate(intake["accepted"], sources)
     log("info", "CALIBRATION", f"完成标定 {len(cal['wheels'])} 条")
+    for handover in cal["handovers"]:
+        log("info", "CAL_HANDOVER",
+            f"{handover['wheel']} · 采信 {handover['chosen']} 覆盖叠期 {len(handover['superseded'])} 张",
+            handover["time"])
     if until == "calibration":
         return wire(results)
     pulse = results["debounce"] = debounce(intake["accepted"], cal["wheels"])

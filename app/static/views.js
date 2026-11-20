@@ -26,6 +26,9 @@ const source = (obj) => obj.source.ref;
 const joined = (list) => list?.join(" / ");
 const labels = {pass: "正常", warn: "偏载", severe: "严重", matched: "已核平", review: "待复秤"};
 const styles = {pass: "ok", warn: "warn", severe: "bad", matched: "ok", review: "warn"};
+const revisionLabels = {
+  INITIAL: "首版", CERTIFICATE_LATE: "迟到标定", CERTIFICATE_UPDATE: "标定更新", SOURCE_UPDATE: "来源更新",
+};
 const displayStatus = (level) => ({text: labels[level], level: styles[level]});
 
 const issueColumns = [
@@ -37,8 +40,10 @@ const wheelColumns = [
   col("记录号", (r) => r.trigger.id), col("车次", (r) => r.trigger.pass_id),
   col("轮道", (r) => r.trigger.side), col("记录时刻", (r) => clock(r.trigger.time)),
   col("原轮载 kg", (r) => r.trigger.raw_kg, true), col("修正轮载 kg", (r) => r.kg, true),
-  col("标定证书", (r) => r.cert), col("证书行", (r) => r.cert_ref), col("触发行", (r) => source(r.trigger)),
+  col("标定证书", (r) => r.cert), col("采信依据", (r) => basisLabels[r.cert_basis] ?? r.cert_basis),
+  col("证书行", (r) => r.cert_ref), col("触发行", (r) => source(r.trigger)),
 ];
+const basisLabels = {SINGLE: "单证", LATE_START: "后生效优先", EQUIVALENT: "等效证书", NO_ORDER: "无先后"};
 
 export function moduleViews(name, snapshot, history) {
   const data = snapshot?.data;
@@ -52,8 +57,14 @@ export function moduleViews(name, snapshot, history) {
         col("原始字段", (r) => joined(r.source.cells)),
       ]], ["采样隔离", stage?.issues, issueColumns],
     ]};
-    case "calibration": return {summary: stage ? `${stage.wheels.length} 条修正 · ${stage.issues.length} 条隔离` : "", views: [
+    case "calibration": return {summary: stage ? `${stage.wheels.length} 条修正 · ${stage.issues.length} 条隔离 · ${(stage.handovers ?? []).length} 条交接` : "", views: [
       ["修正轮载", stage?.wheels, wheelColumns],
+      ["交接采信", stage?.handovers, [
+        col("记录号", (r) => r.wheel), col("车次", (r) => r.pass_id), col("轮道", (r) => r.side),
+        col("采样时刻", (r) => clock(r.time)), col("采信证书", (r) => r.chosen),
+        col("证书行", (r) => r.chosen_ref), col("被覆盖证书", (r) => joined(r.superseded)),
+        col("采信依据", (r) => basisLabels[r.basis] ?? r.basis),
+      ]],
       ["标定证书", stage?.certificates, [
         col("证书", (r) => r.id), col("轮道", (r) => r.side), col("生效", (r) => dateTime(r.start)),
         col("失效", (r) => dateTime(r.end)), col("增益", (r) => r.gain, true),
@@ -94,9 +105,15 @@ export function moduleViews(name, snapshot, history) {
     case "batches": return {summary: `${history.length} 条归档`, views: [
       ["归档批次", history, [
         col("批次号", (r) => ({text: r.run_id.slice(0, 12), run: r.run_id})),
+        col("修订", (r) => `r${r.revision}`),
+        col("修订原因", (r) => revisionLabels[r.revision_reason] ?? r.revision_reason),
         col("数据源", (r) => r.files.triggers.file), col("规则版本", (r) => r.rules),
         col("归档时间", (r) => dateTime(r.created_at)), col("用时 ms", (r) => r.elapsed_ms, true),
         col("触发数", (r) => r.ledger.raw, true), col("待复秤", (r) => r.ledger.review, true),
+      ]], ["修订差异", snapshot?.manifest?.revision_detail?.recalculated_wheels, [
+        col("记录号", (r) => r.trigger), col("车次", (r) => r.pass_id), col("证据行", (r) => r.source_ref),
+        col("原证书", (r) => r.before_cert), col("新证书", (r) => r.cert),
+        col("原轮载 kg", (r) => r.before_kg, true), col("新轮载 kg", (r) => r.after_kg, true),
       ]], ["输入文件", Object.values(snapshot?.manifest?.files ?? {}), [
         col("源文件", (r) => r.file), col("字节数", (r) => r.bytes, true), col("SHA-256", (r) => r.sha256),
       ]],

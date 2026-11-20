@@ -4,7 +4,7 @@ from decimal import Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RULE_VERSION = "axle-1.0.0"
+RULE_VERSION = "axle-1.1.0"
 MAX_FILE_BYTES = 1024 * 1024
 MAX_ROWS = 4000
 CENT = Decimal("0.01")
@@ -18,6 +18,8 @@ NOTICE_RATIO = Decimal("0.10")
 SEVERE_RATIO = Decimal("0.20")
 TICKET_TOLERANCE = Decimal("50.00")
 TICKET_GRACE_MIN = 15
+# 交接叠期采信依据：生效起点晚者优先；起点相同再比失效终点；仍并列则参数一致视为等效。
+CALIBRATION_HANDOVER = "LATE_START_THEN_END"
 
 RULE_PARAMETERS = {
     "debounce_ms": DEBOUNCE_MS,
@@ -31,6 +33,7 @@ RULE_PARAMETERS = {
     "severe_ratio": str(SEVERE_RATIO),
     "ticket_tolerance_kg": str(TICKET_TOLERANCE),
     "ticket_grace_min": TICKET_GRACE_MIN,
+    "calibration_handover": CALIBRATION_HANDOVER,
 }
 
 

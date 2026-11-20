@@ -11,7 +11,7 @@ def row_for(result, key):
 
 def test_ledger_partitions_source_lines_without_overlap(dirty_result):
     data = dirty_result["reconcile"]["ledger"]
-    assert (data["raw"], data["effective"], data["duplicates"], data["isolated"], data["balanced"]) == (50, 22, 3, 25, True)
+    assert (data["raw"], data["effective"], data["duplicates"], data["isolated"], data["balanced"]) == (50, 24, 3, 23, True)
     accepted = [item[side]["trigger"]["source"]["line"] for item in dirty_result["axles"]["axes"] for side in ("left", "right")]
     discarded = [item["source"]["line"] for item in dirty_result["quarantine"] + dirty_result["debounce"]["duplicates"]]
     assert sorted(accepted + discarded) == [line for line in range(2, 55) if line not in (4, 12, 13)]
@@ -21,7 +21,16 @@ def test_ledger_partitions_source_lines_without_overlap(dirty_result):
 def test_decimal_rollup_matches_independently_summed_axles(dirty_result):
     expected = sum(Decimal(axis["total_kg"]) for axis in dirty_result["axles"]["axes"])
     actual = dirty_result["reconcile"]["ledger"]["wheel_kg"]
-    assert Decimal(actual) == expected == Decimal("49590.01")
+    assert Decimal(actual) == expected == Decimal("53623.03")
+
+
+def test_handover_recalculates_difference_from_same_basis(dirty_result):
+    row = row_for(dirty_result, "0012")
+    axis = next(item for item in dirty_result["axles"]["axes"] if item["id"] == "0012/A03")
+    assert (axis["right"]["cert"], axis["right"]["kg"]) == ("R-借表", "2033.02")
+    assert (row["ticket"]["kg"], row["wheel_kg"], row["difference_kg"]) == ("9000.00", "12033.02", "-3033.02")
+    assert row["codes"] == ["WHEELS_INCOMPLETE", "WEIGHT_DIFFERENCE"]
+    assert row["status"] == "review"
 
 
 # TRAP-08

@@ -54,7 +54,47 @@ def axle_rows(results):
         level = {"pass": "正常", "warn": "偏载", "severe": "严重"}[grade["level"]]
         yield (safe_cell(axis["id"]), safe_cell(axis["group"]), axis["time"], axis["gap_m"], axis["skew_ms"],
                left["kg"], right["kg"], axis["total_kg"], grade["percent"], level,
-               left["trigger"]["source"]["ref"], right["trigger"]["source"]["ref"], left["cert_ref"], right["cert_ref"])
+               left["trigger"]["source"]["ref"], right["trigger"]["source"]["ref"],
+               safe_cell(left["cert"]), safe_cell(right["cert"]), left["cert_ref"], right["cert_ref"])
+
+
+def certificate_rows(results):
+    for item in results["calibration"]["certificates"]:
+        yield (safe_cell(item["id"]), item["side"], item["start"], item["end"], item["gain"], item["bias_kg"],
+               item["source"]["file"], item["source"]["line"])
+
+
+def handover_rows(results):
+    for item in results["calibration"].get("handovers", []):
+        yield (safe_cell(item["wheel"]), safe_cell(item["pass_id"]), item["side"], item["time"],
+               safe_cell(item["chosen"]), item["chosen_ref"], " / ".join(item["superseded"]), item["basis"])
+
+
+def revision_rows(manifest):
+    detail = manifest.get("revision_detail") or {}
+    if not detail:
+        return
+    if manifest.get("supersedes"):
+        yield ("基线", manifest["supersedes"], "", "", "", "", "")
+    for role in detail.get("changed_roles", ()):
+        yield ("来源", role, "", "", "", "", "")
+    for item in detail.get("certificates", {}).get("added", ()):
+        yield ("证书新增", item["id"], item["start"], item["end"], item["gain"], item["bias_kg"], item["ref"])
+    for item in detail.get("certificates", {}).get("removed", ()):
+        yield ("证书移除", item["id"], item["start"], item["end"], item["gain"], item["bias_kg"], item["ref"])
+    for item in detail.get("certificates", {}).get("changed", ()):
+        yield ("证书变更", item["after"]["id"], item["before"]["gain"], item["after"]["gain"],
+               item["before"]["bias_kg"], item["after"]["bias_kg"], item["after"]["ref"])
+    for item in detail.get("late_certificates", ()):
+        yield ("迟到证书", item["id"], item["effect"], "", "", "", item["ref"])
+    for item in detail.get("recalculated_wheels", ()):
+        yield ("轮载重算", item["trigger"], item["before_kg"], item["after_kg"],
+               item["before_cert"], item["cert"], item["source_ref"])
+    for item in detail.get("recalculated_differences", ()):
+        yield ("差额重算", item["pass_id"], item["before_wheel_kg"], item["after_wheel_kg"],
+               item["before_difference_kg"], item["after_difference_kg"], item["after_status"])
+    yield ("汇总", "有效轮载kg", detail.get("wheel_kg_before"), detail.get("wheel_kg_after"), "", "", "")
+    yield ("汇总", "待复秤车次", detail.get("review_before"), detail.get("review_after"), "", "", "")
 
 
 def export_bundle(manifest, results):
@@ -70,7 +110,18 @@ def export_bundle(manifest, results):
         ),
         "轴组轮载.csv": csv_bytes(
             ("轴号", "轴组", "轴时刻UTC", "轴距m", "右减左ms", "左kg", "右kg", "轴重kg", "偏载率%", "判级",
-             "左轮证据", "右轮证据", "左标定证书", "右标定证书"), axle_rows(results),
+             "左轮证据", "右轮证据", "左标定证书", "右标定证书", "左证书行", "右证书行"), axle_rows(results),
+        ),
+        "标定证书.csv": csv_bytes(
+            ("证书", "轮道", "生效UTC", "失效UTC", "增益", "偏置千克", "文件", "行号"), certificate_rows(results),
+        ),
+        "交接采信.csv": csv_bytes(
+            ("记录号", "车次", "轮道", "采样时刻UTC", "采信证书", "证书行", "被覆盖证书", "采信依据"),
+            handover_rows(results),
+        ),
+        "修订明细.csv": csv_bytes(
+            ("类别", "对象", "前值", "后值", "补充前值", "补充后值", "证据"),
+            revision_rows(manifest),
         ),
     }
     output = BytesIO()

@@ -22,8 +22,10 @@ def test_nearest_pair_would_invent_axle_when_candidates_conflict(dirty_result):
 def test_left_without_right_goes_to_review_without_estimated_load(dirty_result):
     stage = dirty_result["axles"]
     missing = {item["source"]["cells"][0] for item in stage["issues"] if item["code"] == "PAIR_MISSING"}
-    assert missing == {"0012-3L", "0012-4L", "0031-1R"}
-    assert len([row for row in stage["axes"] if row["pass_id"] == "0012"]) == 2
+    assert missing == {"0012-3L", "0031-1R"}
+    axes = [row for row in stage["axes"] if row["pass_id"] == "0012"]
+    assert [row["id"] for row in axes] == ["0012/A01", "0012/A02", "0012/A03"]
+    assert axes[-1]["right"]["cert"] == "R-借表"
 
 
 def test_multiple_tandem_hits_form_one_group_with_real_distances(dirty_result):

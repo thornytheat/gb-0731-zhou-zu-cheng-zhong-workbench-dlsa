@@ -11,6 +11,7 @@ router = APIRouter(prefix="/api/batches", tags=["称重批次"])
 
 class RunInput(BaseModel):
     sample: str = "dirty"
+    base_run_id: str | None = None
 
 
 @router.get("")
@@ -27,7 +28,9 @@ def logs(request: Request, after: Annotated[int, Query(ge=0, le=2**63 - 1)] = 0,
 
 @router.post("", status_code=201)
 def create_batch(payload: RunInput, request: Request, response: Response):
-    manifest, reused = commit_sample(request.app.state.store, request.app.state.settings.source_dir, payload.sample)
+    manifest, reused = commit_sample(
+        request.app.state.store, request.app.state.settings.source_dir, payload.sample, payload.base_run_id,
+    )
     if reused:
         response.status_code = 200
     return {"manifest": manifest, "reused": reused}
@@ -37,6 +40,11 @@ def create_batch(payload: RunInput, request: Request, response: Response):
 def show_batch(run_id: str, request: Request):
     manifest, _ = request.app.state.store.read(run_id)
     return {"manifest": manifest}
+
+
+@router.get("/{run_id}/lineage")
+def show_lineage(run_id: str, request: Request):
+    return {"lineage": request.app.state.store.lineage(run_id)}
 
 
 @router.post("/{run_id}/rerun")

@@ -37,12 +37,23 @@ def test_mixed_offsets_align_to_same_utc_clock(dirty_result):
 
 
 # TRAP-25
-def test_overlap_isolates_with_both_certificates(dirty_result):
+def test_overlap_uses_later_start_certificate_as_handover_basis(dirty_result):
     stage = dirty_result["calibration"]
-    issue = next(item for item in stage["issues"] if item["code"] == "CAL_OVERLAP")
-    assert issue["source"]["line"] == 23
-    assert issue["related"] == ["certificates.csv:4", "certificates.csv:5"]
-    assert "0012-4R" not in {item["trigger"]["id"] for item in stage["wheels"]}
+    handover = next(item for item in stage["handovers"] if item["wheel"] == "0012-4R")
+    assert (handover["chosen"], handover["chosen_ref"]) == ("R-借表", "certificates.csv:5")
+    assert handover["superseded"] == ["certificates.csv:4"]
+    assert handover["basis"] == "LATE_START"
+    wheel = next(item for item in stage["wheels"] if item["trigger"]["id"] == "0012-4R")
+    assert (wheel["cert"], wheel["kg"]) == ("R-借表", "2033.02")
+    assert wheel["cert_candidates"] == ["certificates.csv:4", "certificates.csv:5"]
+    assert not [item for item in stage["issues"] if item["code"] == "CAL_OVERLAP"]
+
+
+def test_earlier_certificate_keeps_milliseconds_before_handover(dirty_result):
+    stage = dirty_result["calibration"]
+    wheel = next(item for item in stage["wheels"] if item["trigger"]["id"] == "0007-1L")
+    assert (wheel["cert"], wheel["cert_basis"]) == ("L-1120", "SINGLE")
+    assert wheel["cert_candidates"] == ["certificates.csv:3"]
 
 
 # TRAP-15
@@ -55,7 +66,21 @@ def test_affine_calibration_keeps_mixed_unit_weights_consistent(dirty_result):
 
 def test_expired_certificate_and_crossing_end_have_separate_codes(dirty_result):
     issues = {item["source"]["line"]: item["code"] for item in dirty_result["calibration"]["issues"]}
-    assert issues == {23: "CAL_OVERLAP", 52: "CAL_MISSING", 53: "OUTSIDE_PASS", 54: "PASS_UNKNOWN"}
+    assert issues == {52: "CAL_MISSING", 53: "OUTSIDE_PASS", 54: "PASS_UNKNOWN"}
+
+
+def test_same_start_with_different_parameters_has_no_handover_order(dirty):
+    body = "".join([
+        ",".join(HEADER) + "\n",
+        "R-A,R,2026-11-20T12:01:00Z,2026-11-20T13:00:00Z,1,0\n",
+        "R-B,R,2026-11-20T12:01:00Z,2026-11-20T13:00:00Z,1.01,0\n",
+    ])
+    event = next(item for item in accept(dirty["triggers"])["accepted"] if item.id == "0012-4R")
+    source = Source("certificates.csv", body.encode())
+    result = calibrate([event], {**dirty, "certificates": source})
+    assert [item.code for item in result["issues"]] == ["CAL_OVERLAP"]
+    assert result["issues"][0].related == ("certificates.csv:2", "certificates.csv:3")
+    assert result["wheels"] == []
 
 
 def test_corrected_weight_cap_retains_boundary_only(dirty):

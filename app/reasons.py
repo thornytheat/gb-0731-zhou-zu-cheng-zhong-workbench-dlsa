@@ -18,7 +18,8 @@ REASONS = {
     "PASS_UNKNOWN": "车次未备案",
     "OUTSIDE_PASS": "超出车次采样时间窗",
     "CAL_MISSING": "采样时刻无有效标定",
-    "CAL_OVERLAP": "采样时刻标定叠期",
+    "CAL_OVERLAP": "采样时刻标定叠期且无先后",
+    "CAL_HANDOVER": "标定交接叠期按后生效证书采信",
     "WHEEL_RANGE": "修正轮载超限",
     "ID_CONFLICT": "相同记录号的采样冲突",
     "REPLAY_ID": "相同记录号重送",
@@ -38,4 +39,6 @@ REASONS = {
     "SOURCE_CHANGED": "源文件或规则已变更",
     "REPLAY_MISMATCH": "重算结果与归档不一致",
     "STORE_BUSY": "批次库暂忙",
+    "REVISION_BASE": "修订基线批次不存在",
+    "REVISION_CONFLICT": "修订基线已被引用",
 }

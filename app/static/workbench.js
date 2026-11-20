@@ -44,6 +44,8 @@ function paintMetrics() {
   byId("snapshot-state").replaceChildren(element("i", "", `lamp ${manifest && !state.busy ? "ok" : ""}`), stateText);
   byId("batch-id").textContent = manifest?.run_id.slice(0, 12) ?? "—";
   byId("batch-id").title = manifest?.run_id ?? "";
+  byId("revision").textContent = manifest ? `r${manifest.revision}` : "—";
+  byId("revision").title = manifest?.supersedes ? `替代 ${manifest.supersedes.slice(0, 12)}` : "";
   byId("data-version").textContent = manifest?.files.triggers.sha256.slice(0, 12) ?? "—";
   byId("data-version").title = manifest?.files.triggers.sha256 ?? "";
   byId("created-at").textContent = manifest ? dateTime(manifest.created_at) : "—";
@@ -135,7 +137,19 @@ byId("run-form").addEventListener("submit", (event) => {
 byId("rerun").addEventListener("click", () => act(async () => {
   const id = state.snapshot?.manifest?.run_id;
   if (!id) return;
-  await request(`/api/batches/${id}/rerun`, {method: "POST"});
+  try {
+    await request(`/api/batches/${id}/rerun`, {method: "POST"});
+  } catch (error) {
+    if (error.message !== "源文件或规则已变更") throw error;
+    const result = await request("/api/batches", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({sample: sample.value, base_run_id: id}),
+    });
+    await refresh(result.manifest.run_id);
+    await history();
+    showNote(`源文件已变更 · 形成修订 r${result.manifest.revision}`);
+    return;
+  }
   await refresh(id);
   await history();
   showNote("重算核验一致");

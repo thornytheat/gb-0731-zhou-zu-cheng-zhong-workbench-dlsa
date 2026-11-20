@@ -53,5 +53,5 @@ def test_debounce_never_merges_across_vehicle_passes(dirty):
 
 def test_debounce_partitions_every_calibrated_trigger(dirty_result):
     stage = dirty_result["debounce"]
-    assert (len(stage["kept"]), len(stage["duplicates"]), len(stage["issues"])) == (36, 3, 2)
-    assert len(dirty_result["calibration"]["wheels"]) == 36 + 3 + 2
+    assert (len(stage["kept"]), len(stage["duplicates"]), len(stage["issues"])) == (37, 3, 2)
+    assert len(dirty_result["calibration"]["wheels"]) == 37 + 3 + 2

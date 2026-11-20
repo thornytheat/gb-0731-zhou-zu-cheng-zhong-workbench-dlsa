@@ -34,8 +34,15 @@ def test_clean_equal_wheels_have_no_heavy_side(clean_result):
 
 def test_quarantined_wheels_never_participate_in_grading(dirty_result):
     stage = dirty_result["balance"]
-    assert stage["counts"] == {"pass": 9, "warn": 1, "severe": 1}
+    assert stage["counts"] == {"pass": 10, "warn": 1, "severe": 1}
     assert {row["id"] for row in stage["rows"]} == {axis["id"] for axis in dirty_result["axles"]["axes"]}
+
+
+def test_handover_wheel_grades_against_same_certificate_basis(dirty_result):
+    row = next(row for row in dirty_result["balance"]["rows"] if row["id"] == "0012/A03")
+    assert (row["left_kg"], row["right_kg"], row["level"]) == ("2000.00", "2033.02", "pass")
+    axis = next(item for item in dirty_result["axles"]["axes"] if item["id"] == "0012/A03")
+    assert axis["right"]["cert"] == "R-借表"
 
 
 def test_no_axes_produces_zero_grade_counts():
